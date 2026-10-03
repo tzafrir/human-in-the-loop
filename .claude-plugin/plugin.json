@@ -6,9 +6,10 @@
   "author": {
     "name": "Tzafrir Rehan"
   },
-  "homepage": "https://github.com/tzafrir/human-in-the-loop",
+  "homepage": "https://tzafrir.github.io/human-in-the-loop/",
   "repository": "https://github.com/tzafrir/human-in-the-loop",
   "license": "MIT",
+  "privacyPolicyUrl": "https://tzafrir.github.io/human-in-the-loop/privacy",
   "keywords": [
     "tasks",
     "human-in-the-loop",

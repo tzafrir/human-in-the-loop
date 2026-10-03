@@ -1,3 +1,5 @@
+![Human in the loop: Claude hands you the tasks only you can do; they wait in the My tasks pane until you answer, and your answers go back to Claude](media/hero.gif)
+
 # Human in the loop
 
 **Claude hands you the tasks only you can do. They wait until you act, and your answer goes back to Claude.**
@@ -99,7 +101,7 @@ Then start a new session (or run `/reload-plugins`).
 
 ## Support
 
-Report a problem or ask for a feature in [GitHub Issues](https://github.com/tzafrir/human-in-the-loop/issues).
+Report a problem or ask for a feature in [GitHub Issues](https://github.com/tzafrir/human-in-the-loop/issues). Read the [privacy policy](https://tzafrir.github.io/human-in-the-loop/privacy).
 
 ## Develop
 

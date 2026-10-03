@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Human in the loop</title>
+<meta name="description" content="A Claude Code mod: Claude hands you the tasks only you can do. They wait until you act, and your answer goes back to Claude.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Human in the loop">
+<meta property="og:description" content="Claude hands you the tasks only you can do. They wait until you act, and your answer goes back to Claude.">
+<meta property="og:url" content="https://tzafrir.github.io/human-in-the-loop/">
+<meta property="og:image" content="https://tzafrir.github.io/human-in-the-loop/assets/og.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Human in the loop">
+<meta name="twitter:description" content="Claude hands you the tasks only you can do. They wait until you act, and your answer goes back to Claude.">
+<meta name="twitter:image" content="https://tzafrir.github.io/human-in-the-loop/assets/og.png">
+<link rel="icon" type="image/png" href="assets/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+  /* Layout: one centred column in the terminal's world, the sister page's frame with this mod's yellow. Mono for what the pane draws, sans for prose. */
+  :root {
+    --bg: #1b1e23; --surface: #22262c; --term: #282c34; --fg: #e3e6ea; --muted: #9aa3ad; --line: #353a42;
+    --yellow: #ffc94a; --yellow-soft: #e5c07b; --green: #98c379; --key: #b4a7e8; --dim: #7f8893;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, Consolas, "Courier New", monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--fg); font: 16px/1.6 var(--sans); }
+  main { max-width: 920px; margin: 0 auto; padding-inline: 16px; padding-block: 56px 40px; display: grid; gap: 64px; }
+  a { color: var(--yellow); }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+  h1, h2 { margin: 0; text-wrap: balance; line-height: 1.15; }
+  h1 { font: 700 clamp(34px, 6vw, 52px)/1.05 var(--mono); letter-spacing: -.02em; }
+  h1 .box { color: var(--yellow); font-weight: 400; margin-right: .3em; }
+  h2 { font: 700 22px/1.2 var(--mono); }
+  p { margin: 0; max-width: 65ch; }
+  .muted { color: var(--muted); }
+  section { display: grid; gap: 18px; min-width: 0; }
+  code { font-family: var(--mono); font-size: .9em; }
+  ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
+
+  .hero { display: grid; gap: 22px; }
+  .tagline { font-size: clamp(18px, 2.6vw, 22px); max-width: 40ch; }
+  .tagline b { color: var(--yellow); font-weight: 600; }
+  .shot { border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--term); }
+  .shot img { display: block; width: 100%; height: auto; max-width: 100%; }
+
+  .install { display: grid; gap: 8px; }
+  .cmd { display: flex; align-items: center; gap: 12px; background: var(--term); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; min-width: 0; }
+  .cmd code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; }
+  .cmd code::before { content: "> "; color: var(--dim); }
+  button.copy { font: 600 13px var(--sans); color: var(--bg); background: var(--yellow); border: 0; border-radius: 6px; padding: 6px 10px; cursor: pointer; flex: none; }
+  button.copy[data-done] { background: var(--green); }
+  .links { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 15px; }
+
+  blockquote { margin: 0; padding: 10px 14px; border-left: 3px solid var(--yellow-soft); color: var(--muted); font-family: var(--mono); font-size: 14px; }
+  .term { font: 13.5px/1.55 var(--mono); background: var(--term); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; }
+  .pane { border: 1px solid #4a4f58; border-radius: 6px; padding: 0 12px 10px; width: max-content; min-width: min(100%, 600px); }
+  .pane-title { display: inline-block; transform: translateY(-50%); background: var(--term); padding: 0 6px; margin-left: -6px; color: var(--dim); }
+  .row { white-space: pre; }
+  .gap { height: 1.55em; }
+  .in { padding-left: 2ch; }
+  .y { color: var(--yellow-soft); } .d { color: var(--dim); } .b { font-weight: 700; } .k { color: var(--key); }
+  .status { margin-top: 8px; color: var(--dim); white-space: pre; }
+  .msg { white-space: pre-wrap; }
+
+  .kinds { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 14px; }
+  .kind { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: grid; gap: 6px; min-width: 0; }
+  .kind b { font-family: var(--mono); font-size: 14px; color: var(--yellow); }
+  .kind p { font-size: 15px; color: var(--muted); }
+
+  footer { border-top: 1px solid var(--line); padding-top: 18px; display: flex; flex-wrap: wrap; gap: 8px 20px; color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <h1><span class="box" aria-hidden="true">☐</span>Human in the loop</h1>
+    <p class="tagline">Claude hands you the tasks only you can do. They wait until you act, and <b>your answer goes back to Claude.</b></p>
+    <div class="shot"><img src="assets/hero.gif" width="960" height="540" alt="Claude's integration tests fail because a Stripe key is missing; the ask becomes a task that flies into the My tasks pane while Claude keeps working. More tasks arrive, the user answers them when ready, and the answers go back to Claude as one message."></div>
+    <div class="install" aria-label="Install">
+      <p class="muted">Install, in Claude Code:</p>
+      <div class="cmd"><code id="cmd-1">/plugin marketplace add tzafrir/human-in-the-loop</code><button class="copy" type="button" data-for="cmd-1">Copy</button></div>
+      <div class="cmd"><code id="cmd-2">/plugin install human-in-the-loop@human-in-the-loop</code><button class="copy" type="button" data-for="cmd-2">Copy</button></div>
+      <p class="muted">Then start a new session, or run <code>/reload-plugins</code>. Free and MIT-licensed.</p>
+    </div>
+    <div class="links">
+      <a href="https://github.com/tzafrir/human-in-the-loop">Source and documentation on GitHub</a>
+      <a href="privacy">Privacy policy</a>
+    </div>
+  </header>
+
+  <section aria-labelledby="why">
+    <h2 id="why">Why</h2>
+    <p>Claude often needs something only you can do: a key in <code>.env</code>, an approval on staging, a command on your own machine, a decision. Today it says so in the middle of a reply. You're busy steering the next fix, and the ask scrolls away. At best Claude keeps repeating &ldquo;I still need you to&hellip;&rdquo;; at worst the ask is lost.</p>
+    <p>With this mod, Claude assigns the ask as a task instead. It waits in the <b>My tasks</b> pane, counted under the prompt, until you do it, answer it or reject it.</p>
+  </section>
+
+  <section aria-labelledby="example">
+    <h2 id="example">An example</h2>
+    <blockquote>Get our Stripe webhooks library ready to open-source.</blockquote>
+    <p class="muted">Claude works through it, and three times hits something only you can do: the integration tests need your Stripe key, making the repo public is your call, and the package needs a name. Each becomes a task, and Claude keeps working:</p>
+    <div class="term" role="img" aria-label="The My tasks pane with three open tasks, the first selected">
+      <div class="pane">
+        <span class="pane-title">My tasks</span>
+        <div class="row"><span class="y">☐ </span><span class="b">3 tasks for you</span></div>
+        <div class="gap"></div>
+        <div class="row"><span class="y">☐ </span><span class="b">#1 Add STRIPE_SECRET_KEY to .env</span><span class="d">  2m</span></div>
+        <div class="row in">The integration tests run against Stripe's test mode and need it.</div>
+        <div class="row in d">Done when: It's in .env. Don't paste it here.</div>
+        <div class="row in"><span class="k">d</span>: Done   <span class="k">r</span>: Answer…   <span class="k">x</span>: Reject…</div>
+        <div class="row"><span class="y">☐ </span><span class="d">#2 Decide whether to make the repo public  1m</span></div>
+        <div class="row"><span class="y">☐ </span><span class="d">#3 Choose the package's name on npm  now</span></div>
+        <div class="gap"></div>
+        <div class="row d">Esc: back to the prompt   Hide</div>
+      </div>
+      <div class="status">☐ 3 tasks for you · /my-tasks</div>
+    </div>
+    <div class="kinds">
+      <div class="kind"><b>#1 Something to do</b><p>You add the key in your editor, then press <code>d</code>. The key never passes through Claude.</p></div>
+      <div class="kind"><b>#2 Your decision</b><p><code>1</code> makes the repo public, <code>2</code> keeps it private.</p></div>
+      <div class="kind"><b>#3 Your words</b><p>Press <code>r</code>, type <code>@acme/stripe-hooks</code>, Enter.</p></div>
+    </div>
+    <p class="muted">Answer whenever it suits you. Answers you give while Claude works wait for it, and your next answer after it stops takes them along. Here Claude gets them as one message, in your words:</p>
+    <div class="term msg">My responses to tasks you gave me (Human in the loop):
+
+#1 Add STRIPE_SECRET_KEY to .env: Done.
+
+#2 Decide whether to make the repo public: I chose "Make it public".
+
+#3 Choose the package's name on npm:
+@acme/stripe-hooks</div>
+    <p class="muted">Claude picks up where it left off: the integration tests pass, the repo goes public, and the package gets its name. Publishing is left to you.</p>
+  </section>
+
+  <section aria-labelledby="how">
+    <h2 id="how">How it works</h2>
+    <ul>
+      <li><b>Claude keeps working.</b> Unlike a question dialog, a task doesn't stop Claude: it carries on with everything else while the task waits for you, and takes the task back if it finds another way.</li>
+      <li><b>Nothing scrolls away.</b> The My tasks pane opens by itself when a task arrives, and the status line under the prompt counts what's waiting. <code>/my-tasks</code> opens the pane any time.</li>
+      <li><b>Answer your way:</b> Done, an option, an answer in your words, or a rejection with a reason. Long answers, like a log or a stack trace, go through your own prompt box.</li>
+      <li><b>Your answer reaches Claude</b> right away while it's idle. While it works, your answer waits, so Claude isn't interrupted, or goes now with <b>Send now</b>.</li>
+      <li><b>Nothing is lost</b> across a compaction or a new session: open tasks stay with the project, and each session keeps its own, so your answer reaches the Claude that asked.</li>
+    </ul>
+    <p class="muted">It never draws in the band above the prompt, so it works beside band mods such as <a href="https://tzafrir.github.io/whats-agent-doing/">What's Agent Doing</a>.</p>
+  </section>
+
+  <section aria-labelledby="trust">
+    <h2 id="trust">It stays on your machine</h2>
+    <ul>
+      <li>No network, no telemetry, no processes. Open tasks are kept in the plugin's own store under your Claude Code configuration directory, by project.</li>
+      <li>Your answers become part of the conversation, like anything you type. So tasks ask you to put a secret where it belongs and press Done, never to paste it, and an answer that looks like a secret is held with a warning first.</li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>MIT · by Tzafrir Rehan</span>
+    <a href="https://github.com/tzafrir/human-in-the-loop">GitHub</a>
+    <a href="https://github.com/tzafrir/human-in-the-loop/issues">Report a problem</a>
+    <a href="privacy">Privacy</a>
+  </footer>
+</main>
+<script>
+  document.querySelectorAll('button.copy').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var text = document.getElementById(button.dataset.for).textContent;
+      var done = function () {
+        button.textContent = 'Copied';
+        button.setAttribute('data-done', '');
+        setTimeout(function () { button.textContent = 'Copy'; button.removeAttribute('data-done'); }, 1600);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function () { select(button.dataset.for); });
+      } else {
+        select(button.dataset.for);
+      }
+    });
+  });
+  function select(id) {
+    var range = document.createRange();
+    range.selectNodeContents(document.getElementById(id));
+    var selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+</script>
+</body>
+</html>

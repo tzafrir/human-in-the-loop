@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "human-in-the-loop",
+  "description": "Human in the loop, a Claude Code mod by Tzafrir Rehan",
+  "owner": {
+    "name": "Tzafrir Rehan"
+  },
+  "plugins": [
+    {
+      "name": "human-in-the-loop",
+      "source": "./",
+      "description": "Claude assigns you the tasks only you can do. They wait in a Tasks pane, counted under the prompt, until you answer or reject them, so nothing Claude needs from you gets lost in the chat.",
+      "category": "productivity"
+    }
+  ]
+}

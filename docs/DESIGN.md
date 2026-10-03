@@ -2,7 +2,7 @@
 
 A Claude Code mod in which Claude assigns tasks to its user. Each task waits in the My tasks pane, counted in a status line under the prompt, until the user fulfills it or rejects it.
 
-Status: v0.1.0 built, at `~/.claude/dev-mods/<session>/human-in-the-loop/` (16 tests pass, strict validation passes), checked against the mod API of Claude Code 2.1.288. Changes since the first draft: the tasks moved from the band above the prompt to a pane plus a status line ([The UI](#the-ui)); Accept is gone; a mid-turn Send now that the running turn refuses goes as a message the moment the turn ends. What only a live session can confirm is listed under [Spike first](#spike-first).
+Status: v0.1.0 built, at `~/.claude/dev-mods/<session>/human-in-the-loop/` (16 tests pass, strict validation passes), checked against the mod API of Claude Code 2.1.288. Changes since the first draft: the tasks moved from the band above the prompt to a pane plus a status line ([The UI](#the-ui)); Accept is gone; a mid-turn Send now that the running turn refuses goes as a message the moment the turn ends; since 0.1.3, answers saved while Claude worked go when its turn ends too, once no task is left open (with one open, they go with its answer). What only a live session can confirm is listed under [Spike first](#spike-first).
 
 ## The problem
 
@@ -195,7 +195,7 @@ Claude working: Enter saves (`save`), and the button beside it reads **Send now*
 A `prompt.submit` hook recognizes the prefix on Enter, strips it, and records the answer:
 
 - **Claude idle:** the prompt goes through as the message, with the task header added. That is Send now.
-- **Claude working:** the hook answers `{ drop: "Saved as your answer to #5. Claude gets it with your next message, or press Send now in /my-tasks." }`. That is Save for later. The text is kept on the task, so nothing is lost.
+- **Claude working:** the hook answers `{ drop: "Saved as your answer to #5. Claude gets it when this turn ends, or press Send now in /my-tasks." }` ("with your other answers" while another task is open). That is Save for later. The text is kept on the task, so nothing is lost.
 
 This is the design's biggest bet (see the spike). If the terminal `Input` keeps multi-line pastes, the bridge can wait.
 

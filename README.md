@@ -59,7 +59,7 @@ Claude picks up where it left off: the integration tests pass, the repo goes pub
 - **You respond:** Done, an option (`1`–`4`), an answer (`r`), or a rejection with a reason (`x`). Click, or focus the pane with `/my-tasks` or `ctrl+x tab` and use the keys.
 - **Your answer reaches Claude:**
   - while Claude is idle, right away;
-  - while it works, it waits, so Claude isn't interrupted, and goes with your next answer or prompt, or right away with **Send now**.
+  - while it works, it waits, so Claude isn't interrupted, and goes when Claude finishes its turn. If a task is still open then, your answers wait for that one too and arrive together (or with your next prompt). **Send now** sends right away.
 - **Long answers** (a log, a stack trace) go through your own prompt box: **Long answer…** starts it with `↳ Answer to #3:`, and you paste and press Enter.
 - **Claude keeps working.** Unlike a question dialog, a task doesn't stop Claude: it carries on with everything else while the task waits for you, and takes the task back if it finds another way.
 - **Nothing is lost** across a compaction or a new session: open tasks stay with the project and Claude is told about them again. With several sessions open in one project, each keeps its own tasks, so your answer always reaches the Claude that asked.
@@ -101,7 +101,7 @@ Then start a new session (or run `/reload-plugins`).
 
 ### What it sends to Claude, and which tool calls it answers
 
-- **The prompts it submits.** When you respond to a task while Claude is idle, or press **Send now**, the mod submits your response as a prompt in your own words. For each task it carries only the task's number and title and what you did: "Done", the option you chose, your answer, or your reason for rejecting it. It carries nothing else from the conversation or from your machine. One fixed line is the only other prompt it submits: "I answered a task while you were finishing your reply; my answer is above." It goes when your answer arrived during Claude's final reply.
+- **The prompts it submits.** When you respond to a task while Claude is idle, when Claude finishes a turn with your saved responses waiting and no task left open, or when you press **Send now**, the mod submits your response as a prompt in your own words. For each task it carries only the task's number and title and what you did: "Done", the option you chose, your answer, or your reason for rejecting it. It carries nothing else from the conversation or from your machine. One fixed line is the only other prompt it submits: "I answered a task while you were finishing your reply; my answer is above." It goes when your answer arrived during Claude's final reply.
 - **While Claude works:** **Send now** adds the same response as a row Claude reads at its next step, with a notice in the transcript for you ("Sent your response to #3 to Claude") that Claude doesn't read.
 - **Your prompts:** the mod reads them only to recognize a long answer (`↳ Answer to #3: …`), which it turns into that same response, and to attach responses not yet sent as notes Claude reads.
 - **The tool calls it answers:** only calls to its own three tools, `assign_task`, `list_tasks` and `withdraw_task`, which the mod itself serves. Every other tool call passes through untouched.

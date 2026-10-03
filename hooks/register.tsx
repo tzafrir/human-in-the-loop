@@ -138,7 +138,8 @@ const isWorking = atom({ plugin: 'human-in-the-loop', key: 'isWorking' } as cons
 
 /**
  * Send now goes to Claude as a message (`auto` while it is idle), Save for
- * later waits until it checks (`auto` while it works).
+ * later waits (`auto` while it works) until its turn ends with every task
+ * answered, a later answer while it is idle, or the user's next prompt.
  */
 type How = 'auto' | 'now' | 'later'
 
@@ -362,16 +363,21 @@ export const register: Register = on => {
     await syncWorking($)
 
     if (e.agentId === undefined) {
-      // A Send now that joined the turn during its final reply sits in the
-      // conversation with no step left to read it: wake Claude up for it.
-      if (live.isUnread) {
+      // Answers saved while Claude worked go now that it's free, unless a
+      // task is still open: then they go with that last answer, together.
+      const all = await read($, tasks)
+      const isAllAnswered = all.some(task => task.update === 'pending') && !all.some(isActive)
+
+      if (live.isSendingAtEnd || isAllAnswered) {
+        live.isSendingAtEnd = false
+        // This message wakes Claude, which reads any row it missed above it.
+        live.isUnread = false
+        void send($, true)
+      } else if (live.isUnread) {
+        // A Send now that joined the turn during its final reply sits in the
+        // conversation with no step left to read it: wake Claude up for it.
         live.isUnread = false
         void $.prompt.submit({ text: 'I answered a task while you were finishing your reply; my answer is above.', asUser: true })
-      }
-
-      if (live.isSendingAtEnd) {
-        live.isSendingAtEnd = false
-        void send($)
       }
     }
 
@@ -408,9 +414,10 @@ export const register: Register = on => {
 
       if (e.turnId !== undefined) {
         await resolve($, task.id, { state: 'done', ...given }, 'later')
+        const when = (await read($, tasks)).some(isActive) ? 'with your other answers' : 'when this turn ends'
 
         return {
-          drop: `Saved as your answer to #${task.id}. Claude gets it with your next message, or press Send now in /my-tasks.`,
+          drop: `Saved as your answer to #${task.id}. Claude gets it ${when}, or press Send now in /my-tasks.`,
         }
       }
 
@@ -567,7 +574,13 @@ export const register: Register = on => {
           <Input
             key="answer"
             label="Answer › "
-            placeholder={working ? 'Enter saves it; Claude gets it with your next message' : 'Enter sends it to Claude'}
+            placeholder={
+              !working
+                ? 'Enter sends it to Claude'
+                : active.length > 1
+                  ? 'Enter saves it; Claude gets it with your other answers'
+                  : 'Enter saves it; Claude gets it when this turn ends'
+            }
             value={live.drafts.get(task.id) ?? ''}
             submitLabel={working ? 'save' : 'send'}
             autoFocus
@@ -925,8 +938,10 @@ function sendSoon($: EngineInterface) {
 /**
  * Hands Claude every update it has not heard: a turn of its own while it is
  * idle, a row its running turn reads at the next step while it works.
+ * `isTurnOver`: sent as main's turn ends, when Claude is idle whatever the
+ * engine's last word on it was.
  */
-async function send($: EngineInterface) {
+async function send($: EngineInterface, isTurnOver = false) {
   const due = (await read($, tasks)).filter(task => task.update === 'pending')
 
   if (due.length === 0) {
@@ -937,7 +952,7 @@ async function send($: EngineInterface) {
   const ids = due.map(task => task.id)
   const which = ids.map(id => `#${id}`).join(', ')
 
-  if (!working()) {
+  if (isTurnOver || !working()) {
     await delivered($, ids)
     void $.prompt.submit({ text, asUser: true })
     return

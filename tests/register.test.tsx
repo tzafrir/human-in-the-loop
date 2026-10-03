@@ -295,7 +295,7 @@ describe('responding', () => {
     expect(world.status).toBeUndefined()
   })
 
-  test('an answer while Claude works is saved, then rides along with the next prompt', async ($, on) => {
+  test('an answer while Claude works is saved, and goes when its turn ends', async ($, on) => {
     const { world, clock } = seat(on)
     await start($)
 
@@ -304,6 +304,7 @@ describe('responding', () => {
     const ui = await $.ui.mount(PANE)
 
     await ui.press({ key: 'answer' })
+    expect((await ui.find({ type: 'Input', key: 'answer' }))?.props.placeholder).toBe('Enter saves it; Claude gets it when this turn ends')
     await ui.input({ key: 'answer', text: 'LoginTests.testExpiredToken failed' })
     await clock.advance(1000)
     await clock.settle()
@@ -314,11 +315,37 @@ describe('responding', () => {
     expect(world.status).toBe('✓ 1 not sent yet · /my-tasks')
 
     await $.turn.complete({ ...DONE, turnId: 't1' })
+    await clock.settle()
+
+    expect(world.submitted).toEqual([
+      'My response to a task you gave me (Human in the loop):\n\n#1 Run xcodebuild test on your Mac, paste the failures:\nLoginTests.testExpiredToken failed',
+    ])
+    expect(world.status).toBeUndefined()
+  })
+
+  test('with a task still open, a saved answer waits for it, or rides along with the next prompt', async ($, on) => {
+    const { world, clock } = seat(on)
+    await start($)
+
+    await $.tool.call(XCODE_TASK)
+    await $.tool.call(KEY_TASK)
+    await $.turn.start({ text: 'fix the login bug', turnId: 't1' })
+    const ui = await $.ui.mount(PANE)
+
+    await ui.press({ key: 'answer' })
+    expect((await ui.find({ type: 'Input', key: 'answer' }))?.props.placeholder).toBe('Enter saves it; Claude gets it with your other answers')
+    await ui.input({ key: 'answer', text: 'LoginTests.testExpiredToken failed' })
+    await clock.advance(1000)
+    await $.turn.complete({ ...DONE, turnId: 't1' })
+    await clock.settle()
+
+    expect(world.submitted).toHaveLength(0)
+    expect(world.status).toBe('☐ 1 task for you · 1 not sent yet · /my-tasks')
+
     const next = await $.prompt.submit(typed('now the cart'))
 
     expect(next.context?.[0]).toContain('#1 done: Run xcodebuild test on your Mac, paste the failures.')
     expect(next.context?.[0]).toContain('LoginTests.testExpiredToken failed')
-    expect(world.isPaneOpen).toBe(false)
   })
 
   test('Send now while Claude works reaches it in the turn, or the moment the turn ends', async ($, on) => {
@@ -607,7 +634,11 @@ describe('the README example', () => {
     await clock.advance(1000)
     expect(world.submitted).toHaveLength(0)
 
+    // #3 is still open when Claude stops, so #1 and #2 wait to go with it.
     await $.turn.complete({ ...DONE, turnId: 't1' })
+    await clock.settle()
+    expect(world.submitted).toHaveLength(0)
+
     await ui.press({ key: 'answer' })
     await ui.input({ key: 'answer', text: '@acme/stripe-hooks' })
     await clock.advance(1000)

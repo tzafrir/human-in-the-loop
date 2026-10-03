@@ -145,6 +145,11 @@ function seat(on: On, store: Record<string, unknown> = {}) {
     return { message: e.message, uuid: e.uuid }
   })
   on('prompt.context', ($, e) => ({ blocks: e.blocks }))
+  on('ui.render', { component: 'AbovePrompt' }, ($, e) => {
+    const { Box } = $.ui.resolve(e)
+
+    return <Box key="engine" />
+  })
   on('prompt.read', () => ({ value: { text: world.composer, cursor: world.composer.length } }))
   on('prompt.fill', ($, e) => {
     world.composer = e.text
@@ -621,5 +626,52 @@ describe('the README example', () => {
       ].join('\n'),
     ])
     expect(world.status).toBeUndefined()
+  })
+})
+
+describe('knowing whether Claude works', () => {
+  const BAND = {
+    plugin: 'human-in-the-loop',
+    surface: 'terminal',
+    component: 'AbovePrompt',
+    props: { hasSurvey: false, isWorking: false, maxRows: 20, bodyColumns: 100, scroll: { offset: 0, bodyRows: 20 }, view: {} },
+  } as const
+
+  test('a turn another loop begins and ends under its agent id leaves Claude idle', async ($, on) => {
+    const { world, clock } = seat(on)
+    await start($)
+
+    await $.tool.call(KEY_TASK)
+    await $.turn.start({ text: 'fix it', turnId: 't1' })
+    await $.turn.complete({ ...DONE, turnId: 't1' })
+    await $.turn.start({ text: '', turnId: 'side' })
+    await $.turn.complete({ ...DONE, turnId: 'side', agentId: 'side-request' })
+
+    const ui = await $.ui.mount(PANE)
+    await ui.press({ key: 'done' })
+    await clock.advance(1000)
+    await clock.settle()
+
+    expect(world.submitted).toHaveLength(1)
+  })
+
+  test("the engine's word that no turn runs wins over a turn that never ended", async ($, on) => {
+    const { world, clock } = seat(on)
+    await start($)
+
+    await $.tool.call(KEY_TASK)
+    await $.turn.start({ text: '', turnId: 'never-ends' })
+    const band = await $.ui.mount(BAND)
+    await band.redraw({ ...BAND.props, isWorking: true })
+    await band.redraw({ ...BAND.props, isWorking: false })
+    await clock.advance(1)
+
+    const ui = await $.ui.mount(PANE)
+    await ui.press({ key: 'done' })
+    await clock.advance(1000)
+    await clock.settle()
+
+    expect(world.submitted).toHaveLength(1)
+    expect(await band.find({ key: 'engine' })).toBeDefined()
   })
 })

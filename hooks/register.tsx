@@ -157,6 +157,19 @@ const live = {
   heartbeat: null as Timer | null,
   /** Tasks waiting in the project's other live sessions. */
   elsewhere: 0,
+  /**
+   * Turns begun and not yet ended. `turn.start` names no loop, so a loop
+   * other than main's (an engine side request, a teammate) may begin one that
+   * ends under an agent id: each ends by its own id.
+   */
+  turns: new Set<string>(),
+  /** Whether a turn runs, in the engine's own word (the band's `isWorking`), once it has said. */
+  engineWorking: undefined as boolean | undefined,
+}
+
+/** Whether Claude is at work: the engine's word when it has given one, else the turns begun and not ended. */
+function working(): boolean {
+  return live.engineWorking ?? live.turns.size > 0
 }
 
 export const register: Register = on => {
@@ -321,7 +334,8 @@ export const register: Register = on => {
 
   on('turn.start', async ($, e, next) => {
     live.isUnread = false
-    await update($, isWorking, () => true)
+    live.turns.add(e.turnId)
+    await syncWorking($)
 
     return next(e)
   })
@@ -337,9 +351,17 @@ export const register: Register = on => {
   on('turn.complete', async ($, e, next) => {
     const result = await next(e)
 
+    // Main's turn ending ends every turn; another loop's ends its own.
     if (e.agentId === undefined) {
-      await update($, isWorking, () => false)
+      live.turns.clear()
+      live.engineWorking = false
+    } else {
+      live.turns.delete(e.turnId)
+    }
 
+    await syncWorking($)
+
+    if (e.agentId === undefined) {
       // A Send now that joined the turn during its final reply sits in the
       // conversation with no step left to read it: wake Claude up for it.
       if (live.isUnread) {
@@ -354,6 +376,17 @@ export const register: Register = on => {
     }
 
     return result
+  })
+
+  // Draws nothing and passes the band on: it only reads the engine's word on
+  // whether a turn runs, which no turn event gives for every loop.
+  on('ui.render', { component: 'AbovePrompt' }, ($, e, next) => {
+    if (live.engineWorking !== e.props.isWorking) {
+      live.engineWorking = e.props.isWorking
+      $.clock.after(0, () => void syncWorking($))
+    }
+
+    return next(e)
   })
 
   on('prompt.submit', async ($, e, next) => {
@@ -652,6 +685,13 @@ export const register: Register = on => {
   })
 }
 
+/** Keeps the pane's word on whether Claude works (Enter sends, or saves) in step. */
+async function syncWorking($: EngineInterface) {
+  const now = working()
+
+  await update($, isWorking, () => now)
+}
+
 /**
  * Joins the project as this session: takes on its tasks, the store's slot
  * kept alive by a heartbeat, the status line and, for tasks taken on from an
@@ -814,7 +854,7 @@ async function resolve($: EngineInterface, id: number, patch: Pick<Task, 'state'
   await edit($, id, task => ({ ...task, ...patch, update: 'pending' }))
   await settle($, id)
 
-  if (how === 'now' || (how === 'auto' && !(await read($, isWorking)))) {
+  if (how === 'now' || (how === 'auto' && !working())) {
     sendSoon($)
   }
 }
@@ -897,7 +937,7 @@ async function send($: EngineInterface) {
   const ids = due.map(task => task.id)
   const which = ids.map(id => `#${id}`).join(', ')
 
-  if (!(await read($, isWorking))) {
+  if (!working()) {
     await delivered($, ids)
     void $.prompt.submit({ text, asUser: true })
     return

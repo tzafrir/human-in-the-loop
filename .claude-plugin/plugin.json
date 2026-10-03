@@ -1,8 +1,8 @@
 {
   "name": "human-in-the-loop",
   "displayName": "Human in the loop",
-  "version": "0.1.0",
-  "description": "Claude assigns you the tasks only you can do. They wait in a Tasks pane, counted under the prompt, until you answer or reject them, so nothing Claude needs from you gets lost in the chat.",
+  "version": "0.1.1",
+  "description": "Claude assigns you the tasks only you can do. They wait in a My tasks pane, counted under the prompt, until you answer or reject them, so nothing Claude needs from you gets lost in the chat.",
   "author": {
     "name": "Tzafrir Rehan"
   },

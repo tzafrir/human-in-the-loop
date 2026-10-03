@@ -99,6 +99,13 @@ Then start a new session (or run `/reload-plugins`).
 - **Your responses become part of the conversation.** Claude reads what you answer, and the session's transcript on disk keeps it, like anything you type. That's why tasks ask you to put a secret where it belongs and press Done, never to paste it, and why an answer that looks like a secret is held first.
 - **What it adds to the conversation:** the three tools, a few lines in the system prompt telling Claude about tasks, your responses, and, at a conversation's start or after a compaction, a short list of the tasks still open.
 
+### What it sends to Claude, and which tool calls it answers
+
+- **The prompts it submits.** When you respond to a task while Claude is idle, or press **Send now**, the mod submits your response as a prompt in your own words. For each task it carries only the task's number and title and what you did: "Done", the option you chose, your answer, or your reason for rejecting it. It carries nothing else from the conversation or from your machine. One fixed line is the only other prompt it submits: "I answered a task while you were finishing your reply; my answer is above." It goes when your answer arrived during Claude's final reply.
+- **While Claude works:** **Send now** adds the same response as a row Claude reads at its next step, with a notice in the transcript for you ("Sent your response to #3 to Claude") that Claude doesn't read.
+- **Your prompts:** the mod reads them only to recognize a long answer (`↳ Answer to #3: …`), which it turns into that same response, and to attach responses not yet sent as notes Claude reads.
+- **The tool calls it answers:** only calls to its own three tools, `assign_task`, `list_tasks` and `withdraw_task`, which the mod itself serves. Every other tool call passes through untouched.
+
 ## Support
 
 Report a problem or ask for a feature in [GitHub Issues](https://github.com/tzafrir/human-in-the-loop/issues). Read the [privacy policy](https://tzafrir.github.io/human-in-the-loop/privacy).

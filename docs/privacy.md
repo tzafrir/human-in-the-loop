@@ -24,6 +24,8 @@ Human in the loop is a Claude Code plugin: Claude assigns you the tasks only you
 
 Your answers are part of your conversation with Claude, like anything you type: Claude reads them, and Claude Code keeps them in the session's transcript on your machine. That's why tasks ask you to put a secret where it belongs and mark the task done rather than paste it, and why an answer that looks like a secret (an API key, a token, a private key) is held with a warning before it's sent.
 
+When you respond to a task, the plugin sends your response to Claude in your own words: for each task, its number and title and what you did ("Done", the option you chose, your answer, or your reason for rejecting it). Nothing else from the conversation or from your machine goes in. The plugin reads your prompts only to recognize a long answer written there, and it answers only calls to its own three tools.
+
 The plugin also adds to the conversation the three tools Claude uses to assign, list and withdraw tasks; a few lines in the system prompt telling Claude about tasks; and, at a conversation's start or after a compaction, a short list of the tasks still open.
 
 ## Claude Code itself

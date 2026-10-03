@@ -9,6 +9,9 @@
   "homepage": "https://tzafrir.github.io/human-in-the-loop/",
   "repository": "https://github.com/tzafrir/human-in-the-loop",
   "license": "MIT",
+  "icon": "./.claude-plugin/icon.png",
+  "documentationUrl": "https://tzafrir.github.io/human-in-the-loop/",
+  "supportUrl": "https://github.com/tzafrir/human-in-the-loop/issues",
   "privacyPolicyUrl": "https://tzafrir.github.io/human-in-the-loop/privacy",
   "keywords": [
     "tasks",

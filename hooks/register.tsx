@@ -483,7 +483,7 @@ export const register: Register = on => {
       <Box flexDirection="row">
         <Text color="yellow">{'☐ '}</Text>
         <Text bold>{'Assigned you a task: '}</Text>
-        <Text wrap="truncate-end">{printable(title, MAX_TITLE)}</Text>
+        <Text wrap="wrap">{printable(title, MAX_TITLE)}</Text>
       </Box>
     )
   })
@@ -640,7 +640,7 @@ export const register: Register = on => {
         <Box key={`task-${task.id}`} flexDirection="column">
           <Box flexDirection="row">
             {glyph}
-            <Text bold wrap="truncate-end">{`#${task.id} ${printable(task.title, MAX_TITLE)}`}</Text>
+            <Text bold wrap="wrap">{`#${task.id} ${printable(task.title, MAX_TITLE)}`}</Text>
             <Text dimColor>{`  ${ago(nowMs - task.createdMs)}${earlier(task)}`}</Text>
           </Box>
           <Box flexDirection="column" paddingLeft={2}>

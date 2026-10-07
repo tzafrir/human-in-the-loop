@@ -208,6 +208,29 @@ describe('assigning', () => {
     expect(world.toasts).toHaveLength(0)
   })
 
+  test('the open task shows its whole title, wrapped rather than cut at the pane edge', async ($, on) => {
+    seat(on)
+    await start($)
+
+    const title = 'Open Instruments from Xcode and record with the Activity Monitor template'
+    await $.tool.call({ ...KEY_TASK, title })
+    const ui = await $.ui.mount(PANE)
+
+    type Node = { type?: string; props?: { bold?: boolean; wrap?: string }; children?: unknown[] }
+    const bold = (node: unknown): Node | undefined => {
+      const n = node as Node
+      if (n?.type === 'Text' && n.props?.bold) return n
+      for (const child of n?.children ?? []) {
+        const found = bold(child)
+        if (found) return found
+      }
+      return undefined
+    }
+    const shown = bold(await ui.find({ key: 'task-1' }))
+    expect(shown?.children?.join('')).toBe(`#1 ${title}`)
+    expect(shown?.props?.wrap).toBe('wrap')
+  })
+
   test('where the pane cannot be seated unasked, a toast points at /my-tasks', async ($, on) => {
     const { world } = seat(on)
     world.isNarrow = true

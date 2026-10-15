@@ -27,8 +27,8 @@ export type Taken = { ids: number[]; atMs: number }
 /**
  * What a project keeps in the store: the next task number, shared by every
  * session there, each session's own tasks, and the tasks taken from sessions
- * that went quiet. A session writes its own slot only, so two sessions in one
- * project never write over each other's tasks.
+ * that went quiet. Each slot and each note has a key of its own (`keysOf`),
+ * so a session writing its slot never writes over another session's.
  */
 export type Stored = { nextId: number; sessions: Record<string, Slot>; taken: Record<string, Taken> }
 
@@ -148,4 +148,103 @@ export function elsewhereIn(stored: Stored, sessionId: string, nowMs: number): n
   return Object.entries(stored.sessions)
     .filter(([id, slot]) => id !== sessionId && !isGone(slot, nowMs))
     .reduce((sum, [, slot]) => sum + slot.tasks.filter(isShown).length, 0)
+}
+
+/**
+ * Where a project's parts sit in the store. `$.store` writes a whole value
+ * and has no compare-and-set, so each session's slot, and each note of tasks
+ * taken from a session, gets a key of its own: one session's write can't put
+ * back a stale copy of another's. The project's own key keeps the next task
+ * number, and, from versions before 0.1.5, the whole project in one value.
+ */
+export function keysOf(root: string) {
+  const project = `tasks:${root}`
+
+  return {
+    project,
+    sessionPrefix: `${project}#session:`,
+    takenPrefix: `${project}#taken:`,
+    session: (id: string) => `${project}#session:${id}`,
+    taken: (id: string) => `${project}#taken:${id}`,
+  }
+}
+
+/** Whether a project's key holds a layout from before 0.1.5: slots and notes in one value. */
+export function isLegacy(raw: unknown): boolean {
+  const value = (raw ?? {}) as { sessions?: unknown; tasks?: unknown; taken?: unknown }
+
+  return value.sessions !== undefined || value.tasks !== undefined || value.taken !== undefined
+}
+
+/**
+ * The project as the store holds it, from its keys' values (`entries`, by
+ * key). A slot or note an older version still keeps in the project's key
+ * joins the rest; where both have one, the later wins.
+ */
+export function storedFrom(root: string, entries: Readonly<Record<string, unknown>>): Stored {
+  const keys = keysOf(root)
+  const legacy = storedOf(entries[keys.project])
+  const sessions: Record<string, Slot> = {}
+  const taken: Record<string, Taken> = {}
+
+  for (const [key, value] of Object.entries(entries)) {
+    if (key.startsWith(keys.sessionPrefix) && value !== null && typeof value === 'object') {
+      sessions[key.slice(keys.sessionPrefix.length)] = value as Slot
+    } else if (key.startsWith(keys.takenPrefix) && value !== null && typeof value === 'object') {
+      taken[key.slice(keys.takenPrefix.length)] = value as Taken
+    }
+  }
+
+  for (const [id, slot] of Object.entries(legacy.sessions)) {
+    const current = sessions[id]
+    if (current === undefined || slot.seenMs > current.seenMs) {
+      sessions[id] = slot
+    }
+  }
+
+  for (const [id, note] of Object.entries(legacy.taken)) {
+    const current = taken[id]
+    if (current === undefined || note.atMs > current.atMs) {
+      taken[id] = note
+    }
+  }
+
+  return { nextId: legacy.nextId, sessions, taken }
+}
+
+/**
+ * The store writes that take the project from `before`, as read, to `after`:
+ * only the slots and notes that changed, each under its own key. A slot or
+ * note `after` still holds as read (the same object) is not written, so a
+ * session leaves every other live session's slot alone.
+ */
+export function writesOf(root: string, before: Stored, after: Stored): { set: Record<string, unknown>; remove: string[] } {
+  const keys = keysOf(root)
+  const set: Record<string, unknown> = {}
+  const remove: string[] = []
+
+  for (const [parts, key] of [
+    [[before.sessions, after.sessions], keys.session],
+    [[before.taken, after.taken], keys.taken],
+  ] as const) {
+    const [was, now] = parts as readonly [Record<string, unknown>, Record<string, unknown>]
+
+    for (const [id, value] of Object.entries(now)) {
+      if (was[id] !== value) {
+        set[key(id)] = value
+      }
+    }
+
+    for (const id of Object.keys(was)) {
+      if (!(id in now)) {
+        remove.push(key(id))
+      }
+    }
+  }
+
+  if (after.nextId > before.nextId) {
+    set[keys.project] = { nextId: after.nextId }
+  }
+
+  return { set, remove }
 }

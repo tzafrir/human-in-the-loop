@@ -42,7 +42,7 @@ import {
   whyOf,
 } from './pane'
 import type { PaneView } from './pane'
-import { HEARTBEAT_MS, adopt, elsewhereIn, endSlot, storedOf, takenFrom, withSlot } from './project'
+import { HEARTBEAT_MS, adopt, elsewhereIn, endSlot, isLegacy, keysOf, storedFrom, storedOf, takenFrom, withSlot, writesOf } from './project'
 import type { Stored } from './project'
 import { oneLine, printable } from './text'
 
@@ -224,7 +224,8 @@ export const register: Register = on => {
     live.heartbeat = null
 
     try {
-      await writeStore($, endSlot(await readStore($), e.sessionId, await $.clock.now()))
+      const stored = await readStore($)
+      await writeStore($, stored, endSlot(stored, e.sessionId, await $.clock.now()))
     } catch {
       // A store that can't be written in the exit's short budget leaves the
       // slot to go stale, and the next session takes it on then.
@@ -458,9 +459,8 @@ export const register: Register = on => {
       // update Claude has not heard.
       await resolve($, task.id, { state: 'done', ...given }, 'later')
       const due = (await read($, tasks)).filter(one => one.update === 'pending')
-      await delivered($, due.map(one => one.id))
 
-      return next({ ...e, text: messageOf(due) })
+      return passOn($, due, () => next({ ...e, text: messageOf(due) }))
     }
 
     const due = (await read($, tasks)).filter(one => one.update === 'pending')
@@ -469,9 +469,7 @@ export const register: Register = on => {
       return next(e)
     }
 
-    await delivered($, due.map(one => one.id))
-
-    return next({ ...e, context: [...(e.context ?? []), digestOf(due)] })
+    return passOn($, due, () => next({ ...e, context: [...(e.context ?? []), digestOf(due)] }))
   })
 
   // Read at a conversation's start and again after a compaction: what is
@@ -787,12 +785,21 @@ async function load($: EngineInterface) {
     return
   }
 
-  const { adopted, stored } = adopt(await readStore($), live.sessionId, nowMs)
+  const found = await readStore($)
+  const { adopted, stored } = adopt(found, live.sessionId, nowMs)
 
   await update($, tasks, () => adopted)
   await update($, nextId, n => Math.max(n, stored.nextId))
   await update($, loadedFor, () => live.sessionId)
-  await writeStore($, withSlot(stored, live.sessionId, adopted, nowMs))
+  await writeStore($, found, withSlot(stored, live.sessionId, adopted, nowMs))
+
+  // A project's key is made as its first session joins, tasks or not, as
+  // it was before slots had keys of their own: the live render check finds
+  // the store's file by it.
+  const project = keysOf(live.root).project
+  if (!(await $.store.keys()).includes(project)) {
+    await $.store.set(project, { nextId: stored.nextId })
+  }
   live.elsewhere = elsewhereIn(stored, live.sessionId, nowMs)
   await reselect($)
 }
@@ -804,7 +811,7 @@ async function beat($: EngineInterface) {
   const stored = await letGo($, found)
   const elsewhere = elsewhereIn(stored, live.sessionId, nowMs)
 
-  await writeStore($, withSlot(stored, live.sessionId, await read($, tasks), nowMs))
+  await writeStore($, found, withSlot(stored, live.sessionId, await read($, tasks), nowMs))
 
   if (stored !== found || elsewhere !== live.elsewhere) {
     live.elsewhere = elsewhere
@@ -844,26 +851,60 @@ async function letGo($: EngineInterface, stored: Stored): Promise<Stored> {
   return rest
 }
 
-function storeKey(): string {
-  return `tasks:${live.root}`
-}
-
+/**
+ * Reads the project from the store: its key, and each session's and note's
+ * own. A slot or note an older version kept in the project's key moves to a
+ * key of its own here, so this version's writes never pass over it.
+ */
 async function readStore($: EngineInterface): Promise<Stored> {
-  return storedOf(await $.store.get(storeKey()))
+  const keys = keysOf(live.root)
+  const entries: Record<string, unknown> = {}
+
+  for (const key of await $.store.keys()) {
+    if (key === keys.project || key.startsWith(keys.sessionPrefix) || key.startsWith(keys.takenPrefix)) {
+      entries[key] = await $.store.get(key)
+    }
+  }
+
+  const stored = storedFrom(live.root, entries)
+
+  if (isLegacy(entries[keys.project])) {
+    const { [keys.project]: _, ...own } = entries
+    await writeStore($, { ...storedFrom(live.root, own), nextId: 0 }, stored)
+  }
+
+  return stored
 }
 
-async function writeStore($: EngineInterface, stored: Stored) {
-  await $.store.set(storeKey(), stored)
+/** Writes what changed from `before`, as read, to `after`: this session's slot, and only what it took on or let go. */
+async function writeStore($: EngineInterface, before: Stored, after: Stored) {
+  const keys = keysOf(live.root)
+  const { set, remove } = writesOf(live.root, before, after)
+
+  for (const [key, value] of Object.entries(set)) {
+    if (key === keys.project) {
+      // The count only goes up: another session may have raised it meanwhile.
+      const now = storedOf(await $.store.get(key)).nextId
+      await $.store.set(key, { nextId: Math.max(now, after.nextId) })
+    } else {
+      await $.store.set(key, value)
+    }
+  }
+
+  for (const key of remove) {
+    await $.store.delete(key)
+  }
 }
 
 /** Changes the task list and keeps this session's slot of the project's store in step. */
 async function change($: EngineInterface, fn: (list: readonly Task[]) => readonly Task[]) {
   const nowMs = await $.clock.now()
-  const stored = await letGo($, await readStore($))
+  const found = await readStore($)
+  const stored = await letGo($, found)
   const list = await update($, tasks, fn)
   const counted = { ...stored, nextId: Math.max(stored.nextId, await read($, nextId)) }
 
-  await writeStore($, withSlot(counted, live.sessionId, list, nowMs))
+  await writeStore($, found, withSlot(counted, live.sessionId, list, nowMs))
   live.elsewhere = elsewhereIn(stored, live.sessionId, nowMs)
   await refresh($)
 }
@@ -939,6 +980,30 @@ async function delivered($: EngineInterface, ids: readonly number[]) {
   }
 
   await change($, list => list.map(task => (ids.includes(task.id) ? { ...task, update: 'delivered' } : task)))
+}
+
+/**
+ * Passes on a typed prompt that carries `due` to Claude. They are marked
+ * delivered first, so no other path sends them meanwhile; a prompt a hook
+ * beneath drops, or that fails, gives them back, to go with the next send.
+ */
+async function passOn<R extends { drop?: unknown }>($: EngineInterface, due: readonly Task[], pass: () => Promise<R>): Promise<R> {
+  const ids = due.map(one => one.id)
+
+  await delivered($, ids)
+
+  try {
+    const result = await pass()
+
+    if (result.drop !== undefined) {
+      await undelivered($, ids)
+    }
+
+    return result
+  } catch (error) {
+    await undelivered($, ids)
+    throw error
+  }
 }
 
 /** Gives back updates marked delivered that never reached Claude: they wait again. */

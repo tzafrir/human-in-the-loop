@@ -23,6 +23,7 @@ import {
 } from './tasks'
 import {
   ANSWER_LABEL,
+  ANSWER_ROWS,
   BUTTON_GAP,
   HELD,
   HIDE,
@@ -847,6 +848,7 @@ export const register: Register = on => {
           label={ANSWER_LABEL}
           placeholder={placeholderOf(answerPlaceholderOf(view), ANSWER_LABEL, submitLabel, columns)}
           value={fieldValueOf(e.surface, key)}
+          rows={ANSWER_ROWS}
           submitLabel={submitLabel}
           autoFocus
           onInput={value => typed($, key, value)}

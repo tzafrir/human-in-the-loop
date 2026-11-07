@@ -60,7 +60,7 @@ Claude picks up where it left off: the integration tests pass, the repo goes pub
 - **Your answer reaches Claude:**
   - while Claude is idle, right away;
   - while it works, it waits, so Claude isn't interrupted, and goes when Claude finishes its turn. If a task is still open then, your answers wait for that one too and arrive together (or with your next prompt). **Send now** sends right away.
-- **Long answers** (a log, a stack trace) go through your own prompt box: **Long answer…** starts it with `↳ Answer to #3:`, and you paste and press Enter.
+- **Long answers** (a log, a stack trace): in the terminal the answer field holds four lines, and a backslash then Enter starts a new one. For more, or in the desktop app, **Long answer…** starts your own prompt box with `↳ Answer to #3:`, and you paste and press Enter.
 - **Claude keeps working.** Unlike a question dialog, a task doesn't stop Claude: it carries on with everything else while the task waits for you, and takes the task back if it finds another way.
 - **Nothing is lost** across a compaction or a new session: open tasks stay with the project and Claude is told about them again. With several sessions open in one project, each keeps its own tasks, so your answer always reaches the Claude that asked.
 
@@ -91,7 +91,7 @@ claude plugin install human-in-the-loop@human-in-the-loop
 
 Then start a new session (or run `/reload-plugins`).
 
-**Requirements:** Claude Code 2.1.299 or later, in a terminal or in the desktop app's Code tab. The plugin is a [mod](https://github.com/anthropics/claude-code/blob/main/mods/README.md), written with Claude Code's function hooks, which are early access: they load only where function hooks are enabled, and their API may change between releases.
+**Requirements:** Claude Code 2.1.301 or later, in a terminal or in the desktop app's Code tab. The plugin is a [mod](https://github.com/anthropics/claude-code/blob/main/mods/README.md), written with Claude Code's function hooks, which are early access: they load only where function hooks are enabled, and their API may change between releases.
 
 ## Data and privacy
 

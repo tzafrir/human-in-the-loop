@@ -15,6 +15,9 @@ export const BUTTON_GAP = 3
 /** The cells before a task's text: its glyph, `☐ `. */
 const GLYPH_CELLS = 2
 
+/** The answer field's height: a few lines of a log fit in the pane. */
+export const ANSWER_ROWS = 4
+
 /** The fewest columns the terminal gives a focused field's text, however narrow the pane. */
 const MIN_FIELD_COLUMNS = 12
 
@@ -154,12 +157,18 @@ function isLabelCut(head: number, rest: number, columns: number): boolean {
 
 /**
  * The rows a field takes across the pane's body, `columns` wide, holding
- * `text`. The terminal draws its label, the field and, while it has the
- * keys, the hint on one row, and the label, cut short, wraps onto a second,
- * as does the hint. Typed in, the field wraps the text a column short of it,
- * for the cursor; else it cuts the text, or the placeholder, to one row.
+ * `text`. A field `height` rows tall, from two, is a box that tall: the terminal
+ * scrolls what is typed inside it, and clips it out of the keys. A field of
+ * one row draws its label, the field and, while it has the keys, the hint
+ * on one row, and the label, cut short, wraps onto a second, as does the
+ * hint. Typed in, it wraps the text a column short of it, for the cursor;
+ * else it cuts the text, or the placeholder, to one row.
  */
-export function fieldRowsOf(label: string, submitLabel: string, text: string, isTyping: boolean, columns: number): number {
+export function fieldRowsOf(label: string, submitLabel: string, text: string, isTyping: boolean, columns: number, height = 1): number {
+  if (height > 1) {
+    return height
+  }
+
   const head = cellsOf(`${label}: `)
   const field = fieldColumnsOf(label, submitLabel, columns)
 
@@ -266,6 +275,7 @@ function controlRowsOf(task: Task, view: PaneView, width: number, inner: number)
   }
 
   const [label, buttons] = field.field === 'answer' ? [ANSWER_LABEL, answerButtonsOf(view)] : [REASON_LABEL, ['Cancel']]
+  const height = field.field === 'answer' ? ANSWER_ROWS : 1
 
-  return fieldRowsOf(label, submitLabelOf(field.field, view), view.draft, view.isTyping, width) + buttonRowsOf(buttons, inner)
+  return fieldRowsOf(label, submitLabelOf(field.field, view), view.draft, view.isTyping, width, height) + buttonRowsOf(buttons, inner)
 }

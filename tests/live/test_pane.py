@@ -63,6 +63,11 @@ EMOJI = 'Tag issues ✅ done, ❌ failed, ⏳ waiting, ⚡ urgent, ⛔ blocked'
 DRAFT = 'Two failures: LoginTests.testExpiredToken and CartTests.testCouponRounding'
 
 
+def unhinted(text):
+    """Text with a field's hint gone: `⏎ send`, and `· \\⏎ new line` beside a field of several rows."""
+    return re.sub(r'⏎ send( · (\\|shift\+)⏎ new line)?', '', text)
+
+
 def flat(text):
     """Text as one line: the pane's wrapping and the frame's padding gone."""
     return re.sub(r'\s+', ' ', text).strip()
@@ -181,26 +186,43 @@ class Pane(unittest.TestCase):
 
         self.assertTrue(any(row.startswith('Answer: Two failures') for row in body), context)
 
-    def test_a_long_answer_wraps_in_its_field_and_the_pane_grows_to_hold_it(self):
+    def test_a_long_answer_wraps_in_its_four_rows_and_the_pane_fits_them(self):
         # Typed after Answer…: the keys go to the field, not to the pane's hotkeys.
         for columns in (36, 64, 110, 200):
             with self.subTest(columns=columns):
                 body, context = self.draw(TASKS[1:2], columns, keys=('r', DRAFT))
+                text = unhinted(joined(body)).replace(' ', '')
 
                 self.assert_fits(body, context)
-                # Whole, wrapped beside the label, the hint after its first row.
-                self.assertIn(DRAFT.replace(' ', ''), joined(body).replace('⏎ send', '').replace(' ', ''), context)
+                # Wrapped beside the label, the hint after its first row: whole
+                # where four rows hold it, else scrolled to its end, where the cursor is.
+                self.assertIn(DRAFT.replace(' ', '') if columns > 36 else 'CartTests.testCouponRounding', text, context)
                 self.assertIn('Cancel', joined(body), context)
+
+    def test_an_answer_of_two_lines_keeps_them_and_the_pane_fits(self):
+        # A backslash and Enter start a new line, as the field's hint says.
+        for columns in (36, 64, 110):
+            with self.subTest(columns=columns):
+                body, context = self.draw(TASKS[1:2], columns, keys=('r', 'LoginTests.testExpiredToken\\', 'Enter', 'CartTests.testCouponRounding'))
+                rows = [unhinted(row).strip() for row in body]
+                first = next(i for i, row in enumerate(rows) if row.startswith('Answer: '))
+
+                field = ''.join(rows[first:]).replace(' ', '')
+
+                self.assert_fits(body, context)
+                # Enter took the backslash for a new line: the field is open still, the backslash gone.
+                self.assertIn('Answer:LoginTests.testExpiredTokenCartTests.testCouponRounding', field, context)
+                self.assertNotIn('\\', field, context)
 
     def test_closed_and_opened_again_the_field_holds_what_was_typed_in_it(self):
         # ctrl+x x closes the pane as the person's close key does, and the
         # terminal forgets the field's text; /my-tasks opens it again.
         body, context = self.draw(TASKS[1:2], 64, keys=('r', DRAFT, 'C-x', 'x', '/my-tasks', 'Enter'))
 
-        self.assertIn(DRAFT.replace(' ', ''), joined(body).replace('⏎ send', '').replace(' ', ''), context)
+        self.assertIn(DRAFT.replace(' ', ''), unhinted(joined(body)).replace(' ', ''), context)
 
     def test_a_long_answer_out_of_the_keys_keeps_the_pane_fitted(self):
-        # Tab moves the keys on: the field draws one row of its text, the label squeezed onto a second.
+        # Tab moves the keys on: the field keeps its four rows, the text cut to them.
         for columns in (36, 64, 110):
             with self.subTest(columns=columns):
                 body, context = self.draw(TASKS[1:2], columns, keys=('r', DRAFT, 'Tab'))

@@ -909,11 +909,11 @@ describe('long titles', () => {
 
     await ui.redraw(inline(100).props)
     await ui.press({ key: 'select-2' })
-    await ui.press({ key: 'answer' })
+    await ui.press({ key: 'reject' })
     const rows = world.opens.at(-1)?.rows ?? 0
     world.tasksRead = 0
     await ui.input({
-      key: 'answer-2',
+      key: 'reason-2',
       text: 'LoginTests.testExpiredToken failed, and CartTests.testCouponRounding failed with a rounding error in the total',
       kind: 'change',
     })
@@ -957,16 +957,16 @@ describe('long titles', () => {
 
     await $.tool.call(XCODE_TASK)
     const ui = await $.ui.mount(inline(64))
-    await ui.press({ key: 'answer' })
+    await ui.press({ key: 'reject' })
     const rows = world.opens.at(-1)?.rows ?? 0
-    await ui.input({ key: 'answer-1', text: 'Two failures: LoginTests.testExpiredToken and CartTests.testCouponRounding', kind: 'change' })
+    await ui.input({ key: 'reason-1', text: 'Two failures: LoginTests.testExpiredToken and CartTests.testCouponRounding', kind: 'change' })
     expect(world.opens.at(-1)?.rows).toBe(rows + 1)
 
-    // The answer, cut short, takes a row less, and the pane re-sizes reading
+    // The reason, cut short, takes a row less, and the pane re-sizes reading
     // the tasks late: Claude withdraws the task meanwhile.
     world.slowRead = 'tasks'
     world.readMs = 500
-    const typing = ui.input({ key: 'answer-1', text: 'Two failures', kind: 'change' })
+    const typing = ui.input({ key: 'reason-1', text: 'Two failures', kind: 'change' })
     await clock.advance(1)
     await $.tool.call({ tool: WITHDRAW, id: 1, reason: 'Found them in the CI logs' })
     await clock.advance(500)
@@ -982,13 +982,13 @@ describe('long titles', () => {
 
     await $.tool.call(XCODE_TASK)
     const ui = await $.ui.mount(inline(64))
-    await ui.press({ key: 'answer' })
+    await ui.press({ key: 'reject' })
     const rows = world.opens.at(-1)?.rows ?? 0
 
-    // The answer takes a row more, and the surface says late, as it was when
+    // The reason takes a row more, and the surface says late, as it was when
     // asked, that the pane is open: Claude withdraws the task meanwhile.
     world.panesMs = 500
-    const typing = ui.input({ key: 'answer-1', text: 'Two failures: LoginTests.testExpiredToken and CartTests.testCouponRounding', kind: 'change' })
+    const typing = ui.input({ key: 'reason-1', text: 'Two failures: LoginTests.testExpiredToken and CartTests.testCouponRounding', kind: 'change' })
     await clock.advance(1)
     await $.tool.call({ tool: WITHDRAW, id: 1, reason: 'Found them in the CI logs' })
     await clock.advance(500)
@@ -1005,10 +1005,10 @@ describe('long titles', () => {
 
     await $.tool.call(XCODE_TASK)
     const ui = await $.ui.mount(inline(64))
-    await ui.press({ key: 'answer' })
+    await ui.press({ key: 'reject' })
 
     world.panesMs = 500
-    const typing = ui.input({ key: 'answer-1', text: 'Two failures: LoginTests.testExpiredToken and CartTests.testCouponRounding', kind: 'change' })
+    const typing = ui.input({ key: 'reason-1', text: 'Two failures: LoginTests.testExpiredToken and CartTests.testCouponRounding', kind: 'change' })
     await clock.advance(1)
     await ui.press({ key: 'hide' })
     await clock.advance(500)
@@ -1073,24 +1073,30 @@ describe('long titles', () => {
     expect(fieldRowsOf('Answer', 'send', '', false, 18)).toBe(2)
   })
 
+  test('a field of several rows is that tall, whatever it holds, with the keys or without', () => {
+    expect(fieldRowsOf('Answer', 'send', '', true, 60, 4)).toBe(4)
+    expect(fieldRowsOf('Answer', 'send', 'x'.repeat(500), true, 60, 4)).toBe(4)
+    expect(fieldRowsOf('Answer', 'send', 'one\ntwo\nthree\nfour\nfive', false, 20, 4)).toBe(4)
+  })
+
   test('a field squeezed onto a second row in a narrow pane asks for that row', async ($, on) => {
     const { world, clock } = seat(on, earlier([{ ...XCODE_LONG, title: 'Paste the failures', why: "I can't run Xcode." }]))
     await start($)
 
     await runTasks($)
-    // At 28 columns Claude Code 2.1.296 squeezes `⏎ send` under the empty field: 13 rows in all.
+    // At 28 columns Claude Code 2.1.296 squeezes the hint under an empty field of one row: 12 rows in all.
     const ui = await $.ui.mount(inline(24))
-    await ui.press({ key: 'answer' })
-    expect(world.opens.at(-1)?.rows).toBe(13)
-
-    // A short answer leaves the hint room on its row.
-    await ui.input({ key: 'answer-2', text: 'abc', kind: 'change' })
-    await clock.settle()
+    await ui.press({ key: 'reject' })
     expect(world.opens.at(-1)?.rows).toBe(12)
 
-    await ui.input({ key: 'answer-2', text: 'abcdefghijk', kind: 'change' })
+    // A short reason leaves the hint room on its row.
+    await ui.input({ key: 'reason-2', text: 'abc', kind: 'change' })
     await clock.settle()
-    expect(world.opens.at(-1)?.rows).toBe(13)
+    expect(world.opens.at(-1)?.rows).toBe(11)
+
+    await ui.input({ key: 'reason-2', text: 'abcdefghijk', kind: 'change' })
+    await clock.settle()
+    expect(world.opens.at(-1)?.rows).toBe(12)
   })
 
   test('an empty field in a narrow pane, hidden and opened again, takes the ring and asks for the row it squeezes onto', async ($, on) => {
@@ -1099,19 +1105,19 @@ describe('long titles', () => {
 
     await runTasks($)
     const ui = await $.ui.mount(inline(24))
-    await ui.press({ key: 'answer' })
+    await ui.press({ key: 'reject' })
     // Out of the keys, the field draws no hint: one row.
-    await $.ui.focus(ringTo('long'))
+    await $.ui.focus(ringTo('cancel'))
     await clock.settle()
-    expect(world.opens.at(-1)?.rows).toBe(12)
+    expect(world.opens.at(-1)?.rows).toBe(11)
 
-    // Hidden and opened again, the field's autoFocus takes the ring, and `⏎ send` squeezes under it.
+    // Hidden and opened again, the field's autoFocus takes the ring, and `⏎ reject` squeezes under it.
     await ui.press({ key: 'hide' })
     await ui.unmount()
     await runTasks($)
     await $.ui.mount(inline(24))
     await clock.settle()
-    expect(world.opens.at(-1)?.rows).toBe(13)
+    expect(world.opens.at(-1)?.rows).toBe(12)
   })
 
   test('the transcript row keeps its label whole and wraps the title after it', async ($, on) => {
@@ -1353,19 +1359,19 @@ describe('the answer field', () => {
     expect((await desktop.find({ type: 'Input', key: 'answer-1' }))?.props.value).toBe('Use the staging creds')
   })
 
-  test('typed in, the field asks for the rows its text wraps to, and for one row less once the keys leave it', async ($, on) => {
+  test('typed in, a field of one row asks for the rows its text wraps to, and for one row less once the keys leave it', async ($, on) => {
     const { world, clock } = seat(on)
     await start($)
 
     await $.tool.call(XCODE_TASK)
     const ui = await $.ui.mount(inline(60))
     // The field takes the keys as it opens.
-    await ui.press({ key: 'answer' })
+    await ui.press({ key: 'reject' })
     const rows = world.opens.at(-1)?.rows ?? 0
 
-    // 45 columns for the text beside `Answer: ` and ` ⏎ send`, one kept for the cursor: three rows.
+    // 43 columns for the text beside `Reason: ` and ` ⏎ reject`, one kept for the cursor: three rows.
     await ui.input({
-      key: 'answer-1',
+      key: 'reason-1',
       text: 'LoginTests.testExpiredToken failed, and CartTests.testCouponRounding failed with a rounding error',
       kind: 'change',
     })
@@ -1380,11 +1386,11 @@ describe('the answer field', () => {
     expect(world.opens.at(-1)?.rows).toBe(rows + 2)
 
     // Tab moves the keys on, and Shift+Tab brings them back.
-    await $.ui.focus(ringTo('other-way'))
+    await $.ui.focus(ringTo('cancel'))
     await clock.settle()
     expect(world.opens.at(-1)?.rows).toBe(rows + 1)
 
-    await $.ui.focus(ringTo('answer-1'))
+    await $.ui.focus(ringTo('reason-1'))
     await clock.settle()
     expect(world.opens.at(-1)?.rows).toBe(rows + 2)
   })
@@ -1395,14 +1401,14 @@ describe('the answer field', () => {
 
     await $.tool.call(XCODE_TASK)
     const ui = await $.ui.mount(inline(60))
-    await ui.press({ key: 'answer' })
+    await ui.press({ key: 'reject' })
     const rows = world.opens.at(-1)?.rows ?? 0
     await ui.input({
-      key: 'answer-1',
+      key: 'reason-1',
       text: 'LoginTests.testExpiredToken failed, and CartTests.testCouponRounding failed with a rounding error',
       kind: 'change',
     })
-    await $.ui.focus(ringTo('long'))
+    await $.ui.focus(ringTo('cancel'))
     await clock.settle()
     expect(world.opens.at(-1)?.rows).toBe(rows + 1)
 
@@ -1415,9 +1421,9 @@ describe('the answer field', () => {
     expect(world.opens.at(-1)?.rows).toBe(rows + 2)
 
     // A key typed in the field says the ring is there.
-    await $.ui.focus(ringTo('long'))
+    await $.ui.focus(ringTo('cancel'))
     await clock.settle()
-    await again.input({ key: 'answer-1', text: 'LoginTests.testExpiredToken failed, and CartTests.testCouponRounding failed with rounding', kind: 'change' })
+    await again.input({ key: 'reason-1', text: 'LoginTests.testExpiredToken failed, and CartTests.testCouponRounding failed with rounding', kind: 'change' })
     expect(world.opens.at(-1)?.rows).toBe(rows + 2)
   })
 
@@ -1427,19 +1433,19 @@ describe('the answer field', () => {
 
     await $.tool.call(XCODE_TASK)
     const ui = await $.ui.mount(inline(60))
-    await ui.press({ key: 'answer' })
+    await ui.press({ key: 'reject' })
     const rows = world.opens.at(-1)?.rows ?? 0
     await ui.input({
-      key: 'answer-1',
+      key: 'reason-1',
       text: 'LoginTests.testExpiredToken failed, and CartTests.testCouponRounding failed with a rounding error',
       kind: 'change',
     })
-    await $.ui.focus(ringTo('other-way'))
+    await $.ui.focus(ringTo('cancel'))
     await clock.settle()
     expect(world.opens.at(-1)?.rows).toBe(rows + 1)
 
     await ui.press({ key: 'cancel' })
-    await ui.press({ key: 'answer' })
+    await ui.press({ key: 'reject' })
     expect(world.opens.at(-1)?.rows).toBe(rows + 2)
   })
 
@@ -1449,19 +1455,19 @@ describe('the answer field', () => {
 
     await $.tool.call(XCODE_TASK)
     const ui = await $.ui.mount(inline(60))
-    await ui.press({ key: 'answer' })
+    await ui.press({ key: 'reject' })
     const rows = world.opens.at(-1)?.rows ?? 0
-    await ui.input({ key: 'answer-1', text: 'LoginTests.testExpiredToken failed, and CartTests.testCouponRounding failed', kind: 'change' })
+    await ui.input({ key: 'reason-1', text: 'LoginTests.testExpiredToken failed, and CartTests.testCouponRounding failed', kind: 'change' })
     expect(world.opens.at(-1)?.rows).toBe(rows + 1)
 
     // Tab moves the keys on, and that re-size reads slowly once it has the
     // draft; the person comes back to the field and types meanwhile.
     world.slowRead = 'isWorking'
     world.readMs = 100
-    await $.ui.focus(ringTo('other-way'))
+    await $.ui.focus(ringTo('cancel'))
     await clock.settle()
     const typing = ui.input({
-      key: 'answer-1',
+      key: 'reason-1',
       text: 'LoginTests.testExpiredToken failed, and CartTests.testCouponRounding failed with a rounding error',
       kind: 'change',
     })
@@ -1470,6 +1476,29 @@ describe('the answer field', () => {
     await typing
     await clock.settle()
     expect(world.opens.at(-1)?.rows).toBe(rows + 2)
+  })
+
+  test('the answer field is four rows tall, and the pane keeps its height however much is typed, with the keys or without', async ($, on) => {
+    const { world, clock } = seat(on)
+    await start($)
+
+    await $.tool.call(XCODE_TASK)
+    const ui = await $.ui.mount(inline(60))
+    const buttons = world.opens.at(-1)?.rows ?? 0
+    await ui.press({ key: 'answer' })
+
+    expect((await ui.find({ type: 'Input', key: 'answer-1' }))?.props.rows).toBe(4)
+    // The task's buttons give way to the field and the buttons under it.
+    const rows = world.opens.at(-1)?.rows ?? 0
+    expect(rows).toBe(buttons + 4)
+
+    // A log longer than the field scrolls inside it.
+    await ui.input({ key: 'answer-1', text: 'LoginTests.testExpiredToken failed\n'.repeat(8), kind: 'change' })
+    expect(world.opens.at(-1)?.rows).toBe(rows)
+
+    await $.ui.focus(ringTo('other-way'))
+    await clock.settle()
+    expect(world.opens.at(-1)?.rows).toBe(rows)
   })
 
   test('a placeholder longer than the field is cut to its row', async ($, on) => {
@@ -1499,6 +1528,22 @@ describe('responding', () => {
     expect(world.submitted[0]).toBe('My response to a task you gave me (Human in the loop):\n\n#1 Add STRIPE_SECRET_KEY to .env: Done.')
     expect(world.isPaneOpen).toBe(false)
     expect(world.status).toBeUndefined()
+  })
+
+  test('an answer of several lines, typed in the pane while Claude is idle, reaches Claude whole', async ($, on) => {
+    const { world, clock } = seat(on)
+    await start($)
+
+    await $.tool.call(XCODE_TASK)
+    const ui = await $.ui.mount(PANE)
+    await ui.press({ key: 'answer' })
+    await ui.input({ key: 'answer-1', text: 'LoginTests.testExpiredToken\nCartTests.testCouponRounding' })
+    await clock.advance(1000)
+    await clock.settle()
+
+    expect(world.submitted).toEqual([
+      'My response to a task you gave me (Human in the loop):\n\n#1 Run xcodebuild test on your Mac, paste the failures:\nLoginTests.testExpiredToken\nCartTests.testCouponRounding',
+    ])
   })
 
   test('an answer while Claude works is saved, and goes when its turn ends', async ($, on) => {

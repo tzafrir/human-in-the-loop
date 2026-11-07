@@ -290,14 +290,8 @@ const live = {
   stalled: 0,
   /** The roster's writes asked for and not yet done: each waits for the one before (see `rostered`). */
   rosterQueue: Promise.resolve() as Promise<unknown>,
-  /**
-   * Turns begun and not yet ended. `turn.start` names no loop, so a loop
-   * other than main's (an engine side request, a teammate) may begin one that
-   * ends under an agent id: each ends by its own id.
-   */
-  turns: new Set<string>(),
-  /** Whether a turn runs, in the engine's own word (the band's `isWorking`), once it has said. */
-  engineWorking: undefined as boolean | undefined,
+  /** A turn of the main loop has begun and not ended: Claude is at work. */
+  isWorking: false,
   /**
    * How each surface drawing the pane draws it, by `e.surface`: as it last
    * did, or, drawn by two clients or more, every way since one came or went
@@ -318,9 +312,9 @@ const live = {
   refitQueue: Promise.resolve() as Promise<unknown>,
 }
 
-/** Whether Claude is at work: the engine's word when it has given one, else the turns begun and not ended. */
+/** Whether Claude is at work: the main loop's turns alone, not a subagent's or a teammate's. */
 function working(): boolean {
-  return live.engineWorking ?? live.turns.size > 0
+  return live.isWorking
 }
 
 export const register: Register = on => {
@@ -531,8 +525,12 @@ export const register: Register = on => {
   })
 
   on('turn.start', async ($, e, next) => {
+    if (e.agentId !== undefined) {
+      return next(e)
+    }
+
     live.isUnread = false
-    live.turns.add(e.turnId)
+    live.isWorking = true
     await syncWorking($)
 
     return next(e)
@@ -549,17 +547,10 @@ export const register: Register = on => {
   on('turn.complete', async ($, e, next) => {
     const result = await next(e)
 
-    // Main's turn ending ends every turn; another loop's ends its own.
     if (e.agentId === undefined) {
-      live.turns.clear()
-      live.engineWorking = false
-    } else {
-      live.turns.delete(e.turnId)
-    }
+      live.isWorking = false
+      await syncWorking($)
 
-    await syncWorking($)
-
-    if (e.agentId === undefined) {
       // Answers saved while Claude worked go now that it's free, unless a
       // task is still open: then they go with that last answer, together.
       // One a prompt entered without goes with them, but sends nothing alone.
@@ -580,17 +571,6 @@ export const register: Register = on => {
     }
 
     return result
-  })
-
-  // Draws nothing and passes the band on: it only reads the engine's word on
-  // whether a turn runs, which no turn event gives for every loop.
-  on('ui.render', { component: 'AbovePrompt' }, ($, e, next) => {
-    if (live.engineWorking !== e.props.isWorking) {
-      live.engineWorking = e.props.isWorking
-      $.clock.after(0, () => void syncWorking($))
-    }
-
-    return next(e)
   })
 
   on('prompt.submit', async ($, e, next) => {

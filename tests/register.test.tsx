@@ -310,11 +310,6 @@ function seat(on: On, store: Record<string, unknown> = {}) {
     return next(e)
   })
   on('prompt.context', ($, e) => ({ blocks: e.blocks }))
-  on('ui.render', { component: 'AbovePrompt' }, ($, e) => {
-    const { Box } = $.ui.resolve(e)
-
-    return <Box key="engine" />
-  })
   on('prompt.read', () => ({ value: { text: world.composer, cursor: world.composer.length } }))
   on('prompt.fill', ($, e) => {
     world.composer = e.mode === 'append' ? world.composer + e.text : e.text
@@ -4503,22 +4498,15 @@ describe('the README example', () => {
 })
 
 describe('knowing whether Claude works', () => {
-  const BAND = {
-    plugin: 'human-in-the-loop',
-    surface: 'terminal',
-    component: 'AbovePrompt',
-    props: { hasSurvey: false, isWorking: false, maxRows: 20, bodyColumns: 100, scroll: { offset: 0, bodyRows: 20 }, view: {} },
-  } as const
-
-  test('a turn another loop begins and ends under its agent id leaves Claude idle', async ($, on) => {
+  test("a teammate's turn leaves Claude idle", async ($, on) => {
     const { world, clock } = seat(on)
     await start($)
 
     await $.tool.call(KEY_TASK)
     await $.turn.start({ text: 'fix it', turnId: 't1' })
     await $.turn.complete({ ...DONE, turnId: 't1' })
-    await $.turn.start({ text: '', turnId: 'side' })
-    await $.turn.complete({ ...DONE, turnId: 'side', agentId: 'side-request' })
+    // Main's turn is over; a teammate is still at work in its own.
+    await $.turn.start({ text: 'review the diff', turnId: 'mate', agentId: 'reviewer' })
 
     const ui = await $.ui.mount(PANE)
     await ui.press({ key: 'done' })
@@ -4528,23 +4516,25 @@ describe('knowing whether Claude works', () => {
     expect(world.submitted).toHaveLength(1)
   })
 
-  test("the engine's word that no turn runs wins over a turn that never ended", async ($, on) => {
+  test("a subagent's turn ending leaves Claude at work in its own", async ($, on) => {
     const { world, clock } = seat(on)
     await start($)
 
     await $.tool.call(KEY_TASK)
-    await $.turn.start({ text: '', turnId: 'never-ends' })
-    const band = await $.ui.mount(BAND)
-    await band.redraw({ ...BAND.props, isWorking: true })
-    await band.redraw({ ...BAND.props, isWorking: false })
-    await clock.advance(1)
+    await $.turn.start({ text: 'fix it', turnId: 't1' })
+    await $.turn.start({ text: 'find the flaky test', turnId: 'sub', agentId: 'explorer' })
+    await $.turn.complete({ ...DONE, turnId: 'sub', agentId: 'explorer' })
 
     const ui = await $.ui.mount(PANE)
     await ui.press({ key: 'done' })
     await clock.advance(1000)
     await clock.settle()
 
+    expect(world.submitted).toHaveLength(0)
+
+    await $.turn.complete({ ...DONE, turnId: 't1' })
+    await clock.settle()
+
     expect(world.submitted).toHaveLength(1)
-    expect(await band.find({ key: 'engine' })).toBeDefined()
   })
 })

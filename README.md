@@ -91,7 +91,7 @@ claude plugin install human-in-the-loop@human-in-the-loop
 
 Then start a new session (or run `/reload-plugins`).
 
-**Requirements:** Claude Code in a terminal, or in the desktop app's Code tab. The plugin is a [mod](https://github.com/anthropics/claude-code/blob/main/mods/README.md), written with Claude Code's function hooks, which are early access: they load only where function hooks are enabled, and their API may change between releases.
+**Requirements:** Claude Code 2.1.299 or later, in a terminal or in the desktop app's Code tab. The plugin is a [mod](https://github.com/anthropics/claude-code/blob/main/mods/README.md), written with Claude Code's function hooks, which are early access: they load only where function hooks are enabled, and their API may change between releases.
 
 ## Data and privacy
 

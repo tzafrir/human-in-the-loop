@@ -16,7 +16,7 @@ concurrency:
 env:
   # The engine the tests run against. Bump it on purpose, so a change in
   # the test kit shows up as its own commit and not as a red PR.
-  CLAUDE_CODE_VERSION: 2.1.296
+  CLAUDE_CODE_VERSION: 2.1.319
 
 jobs:
   test:
